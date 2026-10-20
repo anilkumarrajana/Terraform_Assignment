@@ -1,0 +1,63 @@
+---
+- name: Clone TravelMemory repository
+  git:
+    repo: "{{ app_repo }}"
+    dest: "{{ app_directory }}"
+    version: main
+    force: yes
+
+- name: Install backend dependencies
+  npm:
+    path: "{{ app_directory }}/backend"
+
+- name: Install frontend dependencies
+  npm:
+    path: "{{ app_directory }}/frontend"
+
+- name: Create backend .env file
+  copy:
+    dest: "{{ app_directory }}/backend/.env"
+    content: |
+      PORT=3001
+      MONGO_URI=mongodb://10.0.2.82:27017/travelmemory
+
+- name: Check if PM2 process exists
+  become: yes
+  become_user: ubuntu
+  shell: pm2 describe travelmemory-backend
+  register: pm2_status
+  failed_when: false
+  changed_when: false
+
+- name: Stop existing PM2 process
+  become: yes
+  become_user: ubuntu
+  shell: pm2 delete travelmemory-backend
+  when: pm2_status.rc == 0
+  ignore_errors: yes
+
+- name: Kill any process using port 3001
+  become: yes
+  shell: |
+    fuser -k 3001/tcp || true
+
+- name: Start backend using PM2
+  become: yes
+  become_user: ubuntu
+  shell: pm2 start index.js --name travelmemory-backend
+  args:
+    chdir: "{{ app_directory }}/backend"
+
+- name: Save PM2 process list
+  become: yes
+  become_user: ubuntu
+  shell: pm2 save
+
+- name: Display PM2 status
+  become: yes
+  become_user: ubuntu
+  command: pm2 list
+  register: pm2_output
+
+- debug:
+    var: pm2_output.stdout

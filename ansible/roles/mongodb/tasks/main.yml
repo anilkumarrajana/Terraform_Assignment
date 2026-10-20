@@ -1,0 +1,39 @@
+---
+- name: Import MongoDB GPG key
+  shell: |
+    curl -fsSL https://pgp.mongodb.com/server-8.0.asc | \
+    gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+  args:
+    creates: /usr/share/keyrings/mongodb-server-8.0.gpg
+
+- name: Add MongoDB repository
+  copy:
+    dest: /etc/apt/sources.list.d/mongodb-org-8.0.list
+    content: |
+      deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install MongoDB
+  apt:
+    name: mongodb-org
+    state: present
+
+- name: Enable MongoDB
+  systemd:
+    name: mongod
+    enabled: yes
+
+- name: Start MongoDB
+  systemd:
+    name: mongod
+    state: started
+
+- name: Verify MongoDB
+  command: systemctl is-active mongod
+  register: mongo_status
+
+- debug:
+    var: mongo_status.stdout

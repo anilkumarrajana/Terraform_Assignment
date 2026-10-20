@@ -1,0 +1,10 @@
+---
+node_version: "20"
+
+mongodb_version: "8.0"
+
+app_repo: "https://github.com/UnpredictablePrashant/TravelMemory.git"
+
+app_directory: "/opt/travelmemory"
+
+mongo_port: 27017
