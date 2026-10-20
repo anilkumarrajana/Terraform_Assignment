@@ -1,157 +1,186 @@
-# Deploying TravelMemory (MERN Stack) on AWS with Terraform + Ansible
+# 🚀 TravelMemory Deployment using Terraform & Ansible on AWS
 
-This repo provisions AWS infrastructure with **Terraform** and configures/deploys the
-[TravelMemory](https://github.com/UnpredictablePrashant/TravelMemory) MERN application
-with **Ansible**.
+<p align="center">
 
-## Architecture
+![Terraform](https://img.shields.io/badge/Terraform-v1.14+-623CE4?logo=terraform)
+![Ansible](https://img.shields.io/badge/Ansible-2.16+-EE0000?logo=ansible)
+![AWS](https://img.shields.io/badge/AWS-EC2%20%7C%20VPC%20%7C%20IAM-FF9900?logo=amazonaws)
+![Ubuntu](https://img.shields.io/badge/Ubuntu-24.04-E95420?logo=ubuntu)
+![MongoDB](https://img.shields.io/badge/MongoDB-8.0-47A248?logo=mongodb)
+![NodeJS](https://img.shields.io/badge/Node.js-v20-339933?logo=node.js)
+![PM2](https://img.shields.io/badge/PM2-Process%20Manager-2B037A)
+![License](https://img.shields.io/badge/License-MIT-blue)
+
+</p>
+
+---
+
+# 📖 Project Overview
+
+This project demonstrates a complete Infrastructure as Code (IaC) and Configuration Management workflow using **Terraform** and **Ansible** to deploy the **TravelMemory** application on **Amazon Web Services (AWS)**.
+
+The infrastructure is provisioned using Terraform, while Ansible automates the configuration of both the application server and the MongoDB database server.
+
+The deployment provisions:
+
+- Amazon VPC
+- Public Subnet
+- Private Subnet
+- Internet Gateway
+- NAT Gateway
+- Route Tables
+- Security Groups
+- IAM Role & Instance Profile
+- EC2 Web Server
+- EC2 MongoDB Server
+- Node.js 20
+- MongoDB 8.0
+- PM2 Process Manager
+- TravelMemory Backend Application
+
+The repository also includes detailed documentation for each deployment stage under the `docs/` directory, making it easier to understand and reproduce each phase of the implementation.
+
+---
+
+
+# 🎯 Objectives
+
+- Provision AWS infrastructure using Terraform
+- Configure servers using Ansible
+- Deploy TravelMemory backend
+- Configure MongoDB in a private subnet
+- Manage the application using PM2
+- Verify successful deployment
+
+---
+
+# 📑 Table of Contents
+
+- [Project Overview](#-project-overview)
+- [Architecture](#-architecture)
+- [Repository Structure](#-repository-structure)
+- [Project Documentation](#-project-documentation)
+- [Terraform Deployment](#-terraform-deployment)
+- [AWS Infrastructure](#-aws-infrastructure)
+- [Ansible Configuration](#-ansible-configuration)
+- [Application Verification](#-application-verification)
+- [Challenges Faced](#-challenges-faced)
+- [Future Enhancements](#-future-enhancements)
+- [Author](#-author)
+
+---
+
+# 🏗 Architecture
+
+```text
+                          Internet
+                              │
+                     Internet Gateway
+                              │
+                    Public Route Table
+                              │
+                 Public Subnet (10.0.1.0/24)
+                              │
+               TravelMemory Web Server (Ubuntu)
+                ├── Node.js 20
+                ├── PM2
+                └── TravelMemory Backend
+                              │
+                     Private Route Table
+                              │
+                 Private Subnet (10.0.2.0/24)
+                              │
+                  MongoDB Server (Ubuntu)
+                         MongoDB 8.0
+```
+![Architecture](screenshots/architecture-diagram.png)
+---
+
+# 📂 Repository Structure
+
+Repository Structure:
+
+![Repository Structure](screenshots/tree.png)
+
+```text
+travelmemory-terraform-ansible/
+├── README.md
+├── Ansile_README.md
+├── Terraform_README.md
+├── terraform/
+│   ├── provider.tf
+│   ├── variables.tf
+│   ├── terraform.tfvars
+│   ├── network.tf
+│   ├── security.tf
+│   ├── iam.tf
+│   ├── ec2.tf
+│   ├── outputs.tf
+│   └── main.tf
+│
+├── ansible/
+│   ├── inventory
+│   ├── ansible.cfg
+│   ├── playbook.yml
+│   ├── group_vars/
+│   └── roles/
+│       ├── common/
+│       ├── nodejs/
+│       ├── mongodb/
+│       └── application/
+│
+├── screenshots/
 
 ```
-                         Internet
-                             │
-                     ┌───────▼────────┐
-                     │ Internet Gateway│
-                     └───────┬────────┘
-                             │
-                    VPC (10.0.0.0/16)
-        ┌────────────────────┴─────────────────────┐
-        │                                           │
-┌───────▼────────────┐                    ┌─────────▼──────────┐
-│ Public Subnet       │                    │ Private Subnet      │
-│ 10.0.1.0/24          │                    │ 10.0.2.0/24          │
-│                       │                    │                       │
-│ ┌───────────────────┐ │   port 27017 only  │ ┌───────────────────┐ │
-│ │ Web EC2 instance    │─┼────(web SG)───────┼─▶│ DB EC2 instance     │ │
-│ │ - Nginx (port 80)   │ │                    │ │ - MongoDB           │ │
-│ │ - React build        │ │                    │ │ - auth enabled       │ │
-│ │ - Express API :3000  │ │                    │ │ - app-only user      │ │
-│ └───────────────────┘ │                    │ └───────────────────┘ │
-└─────────┬─────────────┘                    └──────────┬────────────┘
-          │ SSH (my IP only)                              │
-          │                                    ┌───────────▼──────────┐
-          │                                    │      NAT Gateway       │
-          ▼                                    │ (outbound apt/npm only)│
-     My laptop                                 └────────────────────────┘
-```
+---
+# 📚 Project Documentation
 
-**How the pieces interact:**
-- The **web EC2 instance** sits in the public subnet, has a public IP, and is the
-  only box reachable from the internet (SSH restricted to my IP; HTTP/3000 open).
-- The **db EC2 instance** sits in the private subnet with no public IP. It can only
-  be reached on port 27017 from the web server's security group, and it reaches the
-  internet outbound (for `apt` package installs) through the NAT Gateway.
-- Ansible configures the web server to run the **Express backend** with `pm2` on
-  port 3000, and serves the **React frontend's production build** via **Nginx** on
-  port 80. Nginx also reverse-proxies `/api/` to the backend.
-- The backend connects to MongoDB using the DB server's **private IP**, so database
-  traffic never leaves the VPC.
+Detailed documentation for each component is available in the `docs` directory.
 
-## Prerequisites
+| Documentation | Description |
+|---------------|-------------|
+| [Terraform Deployment](Terraform_README.md) | Infrastructure provisioning using Terraform |
+| [Ansible Deployment](Ansile_README.md) | Configuration management, roles, inventory, playbooks |
 
-- An AWS account with an IAM user that has EC2/VPC/IAM permissions
-- AWS CLI installed and configured (`aws configure`)
-- Terraform >= 1.5
-- Ansible >= 2.15, plus the `community.mongodb` collection
-- An existing EC2 key pair (create one in the AWS console or via `aws ec2 create-key-pair`)
-- Your local public IP (`curl -s ifconfig.me`)
 
-## Part 1 — Provision infrastructure with Terraform
+---
 
-```bash
-cd terraform
-cp terraform.tfvars.example terraform.tfvars
-# edit terraform.tfvars: set key_pair_name and my_ip
+# ⚙️ Prerequisites
 
-terraform init
-terraform plan
-terraform apply
-```
+The following software was installed before deployment.
 
-This creates:
-- A VPC with one public and one private subnet
-- An Internet Gateway (public subnet) and NAT Gateway (private subnet's outbound access)
-- Route tables wiring each subnet to the right gateway
-- A web-tier security group (SSH from my IP, HTTP 80, app port 3000) and a
-  db-tier security group (SSH + Mongo 27017, both restricted to the web SG)
-- An IAM role + instance profile (SSM + CloudWatch access) attached to both instances
-- Two EC2 instances: `web` (public subnet) and `db` (private subnet)
+| Software | Version |
+|----------|----------|
+| Terraform | v1.14.x |
+| Ansible | 2.16.x |
+| AWS CLI | v2 |
+| Ubuntu | 24.04 |
+| Node.js | v20 |
+| MongoDB | 8.0 |
+| PM2 | Latest |
+| Git | Latest |
 
-At the end, note the outputs:
+---
 
-```bash
-terraform output
-# web_server_public_ip = "x.x.x.x"
-# db_server_private_ip = "10.0.2.x"
-```
-
-## Part 2 — Configure and deploy with Ansible
-
-```bash
-cd ../ansible
-ansible-galaxy collection install -r requirements.yml
-
-cp inventory.ini.example inventory.ini
-# fill in <WEB_PUBLIC_IP> and <DB_PRIVATE_IP> using the terraform output above
-
-cp group_vars/vault.yml.example group_vars/vault.yml
-# fill in real Mongo credentials, then encrypt:
-ansible-vault encrypt group_vars/vault.yml
-```
-
-Copy your `.pem` key to `~/.ssh/mern-assignment-key.pem` and `chmod 400` it, then
-verify connectivity:
-
-```bash
-ansible all -i inventory.ini -m ping --ask-vault-pass
-```
-
-Run the full playbook:
-
-```bash
-ansible-playbook -i inventory.ini playbook.yml --ask-vault-pass
-```
-
-This will, in order:
-1. **Database role** — installs MongoDB 7.0, binds it to listen inside the VPC,
-   enables authentication, creates an admin user and an app-scoped user/database,
-   and locks down `ufw` so only the web server's subnet can reach port 27017.
-2. **Web role** — installs Node.js 20 + pm2, clones TravelMemory, installs backend
-   and frontend dependencies, writes the backend `.env` with the Mongo connection
-   string (pointing at the DB server's private IP), builds the React frontend,
-   configures Nginx to serve it and proxy `/api/`, starts the backend under pm2
-   (with a systemd unit so it survives reboot), and hardens SSH (`PermitRootLogin no`,
-   `PasswordAuthentication no`) plus firewall rules.
-
-## Verifying the deployment
-
-```bash
-curl http://<web_server_public_ip>/           # React app should load
-curl http://<web_server_public_ip>:3000/      # Express API should respond
-```
-
-Open `http://<web_server_public_ip>/` in a browser to see the working TravelMemory app.
-
-## Security hardening implemented
-
-- SSH to the web server restricted to the operator's IP only; DB server has no
-  public IP at all and is reachable only via the web server's security group.
-- MongoDB authentication enabled; app uses a least-privilege user scoped to one database.
-- `ufw` enabled on both hosts with a default-deny policy.
-- Root SSH login and password authentication disabled on the web server.
-- Secrets (DB credentials) kept out of Git via `ansible-vault` and `.gitignore`.
-
-## Repo layout
+# ☁ AWS Region
 
 ```
-terraform/     # AWS infrastructure (VPC, subnets, gateways, EC2, SGs, IAM)
-ansible/       # Configuration management and app deployment
-  roles/database/   # MongoDB install + hardening
-  roles/webserver/  # Node.js, TravelMemory app, Nginx, pm2, SSH hardening
+ap-south-1 (Mumbai)
 ```
 
-## Tearing down
+---
 
-```bash
-cd terraform
-terraform destroy
-```
+# 📦 Application Repository
+
+https://github.com/UnpredictablePrashant/TravelMemory
+
+---
+
+# 🏗 Infrastructure Repository
+
+https://github.com/anilkumarrajana/Terraform_Assignment.git
+
+---
+
+---
+
