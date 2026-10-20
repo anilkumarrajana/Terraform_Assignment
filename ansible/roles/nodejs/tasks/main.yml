@@ -1,0 +1,24 @@
+---
+- name: Install NodeSource repository
+  shell: |
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  args:
+    executable: /bin/bash
+
+- name: Install NodeJS
+  apt:
+    name: nodejs
+    state: present
+    update_cache: yes
+
+- name: Install PM2 globally
+  npm:
+    name: pm2
+    global: yes
+
+- name: Verify Node version
+  command: node -v
+  register: node_version
+
+- debug:
+    var: node_version.stdout
