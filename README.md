@@ -100,8 +100,6 @@ The repository also includes detailed documentation for each deployment stage un
 
 Repository Structure:
 
-![Repository Structure](screenshots/tree.png)
-
 ```text
 travelmemory-terraform-ansible/
 ├── README.md
